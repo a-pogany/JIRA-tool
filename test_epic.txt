@@ -1,0 +1,4 @@
+Build a comprehensive dashboard for analytics and reporting.
+Users need to see key metrics, charts, and export data.
+Should support filtering by date range and custom dimensions.
+Real-time updates for critical metrics.

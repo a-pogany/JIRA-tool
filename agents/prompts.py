@@ -23,7 +23,8 @@ EXTRACTION CHECKLIST - Extract ALL of the following:
    - Detailed description with technical context
    - 5+ acceptance criteria (functional, security, performance, edge cases, testing)
    - Technical notes (APIs, schemas, dependencies)
-   - Priority and estimated effort
+   - Priority: MUST be "High", "Medium", or "Low" (exactly these values)
+   - Estimated effort: MUST be "Small", "Medium", or "Large" (exactly these values)
 
 3. **IMPLICIT REQUIREMENTS** (Add if not mentioned):
    - Error handling and validation
@@ -77,6 +78,7 @@ Return as JSON:
 CRITICAL:
 - Be SPECIFIC: exact error messages, exact API endpoints, exact database schemas
 - Be COMPLETE: security + performance + testing + error handling
+- Use EXACT values for priority ("High", "Medium", "Low") and estimated_effort ("Small", "Medium", "Large")
 - Think like a developer who will implement this
 """
 
@@ -111,7 +113,9 @@ BUG REPORT EXTRACTION CHECKLIST - Extract ALL of the following:
    - User role/permissions
    - Data conditions
 
-5. **SEVERITY & PRIORITY**
+5. **SEVERITY & PRIORITY** (Use EXACT values)
+   - Severity: MUST be "Critical", "High", "Medium", or "Low"
+   - Priority: MUST be "Critical", "High", "Medium", or "Low"
    - Critical: System down, data loss, security breach
    - High: Major feature broken, workaround exists
    - Medium: Minor feature broken, low impact
@@ -227,5 +231,6 @@ Return as JSON:
 QUALITY STANDARDS:
 - Stories must follow "As a/I want to/So that" format
 - At least 3 acceptance criteria in Given/When/Then format
+- Use EXACT values for priority ("High", "Medium", "Low") and estimated_effort ("Small", "Medium", "Large")
 - Include edge cases and error scenarios
 """

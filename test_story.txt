@@ -1,0 +1,4 @@
+Users need to be able to reset their password if they forget it.
+They should receive an email with a reset link that expires after 1 hour.
+After clicking the link, they should be able to set a new password.
+This helps users regain access to their account without contacting support.

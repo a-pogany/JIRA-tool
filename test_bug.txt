@@ -1,0 +1,12 @@
+Login button doesn't work on Safari iOS. When users click the login button, nothing happens.
+
+Steps to reproduce:
+1. Open Safari on iOS 15+
+2. Go to the login page
+3. Enter valid email and password
+4. Click Login button
+5. Nothing happens - no error, button stays idle
+
+Environment: Safari iOS 15-17, happens on all iOS versions
+Error in console: "Cannot read property 'submit' of null"
+This is blocking iOS users from accessing the platform.

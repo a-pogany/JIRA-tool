@@ -97,19 +97,21 @@ class ExtractionAgent:
             # Parse JSON response
             data = json.loads(json_text)
 
-            # Create TicketStructure
+            # Create TicketStructure with parsed models
+            from models import Epic, Bug, UserStory
+
             structure = TicketStructure(
                 project_key=project_key,
                 issue_type=self.issue_type
             )
 
-            # Populate based on issue type
+            # Populate based on issue type - parse dicts into Pydantic models
             if self.issue_type == 'bug':
-                structure.bugs = data.get('bugs', [])
+                structure.bugs = [Bug(**bug_data) for bug_data in data.get('bugs', [])]
             elif self.issue_type == 'story':
-                structure.stories = data.get('stories', [])
+                structure.stories = [UserStory(**story_data) for story_data in data.get('stories', [])]
             else:  # task or epic-only
-                structure.epics = data.get('epics', [])
+                structure.epics = [Epic(**epic_data) for epic_data in data.get('epics', [])]
 
             return structure
 
