@@ -4,43 +4,62 @@
 
 Convert meeting notes, design discussions, bug reports, or any text into comprehensive, first-class Jira tickets with complete specifications, acceptance criteria, and production-ready details.
 
-**Status**: Phase 1 ✅ **PRODUCTION READY** | Phase 2 ⏭️ Planned
+**Status**: Phase 1 ✅ **PRODUCTION READY** | Phase 2 Core ✅ **COMPLETE**
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Install
+### 1. Install & Setup
 
 ```bash
 git clone https://github.com/a-pogany/JIRA-tool.git
 cd JIRA-tool
-pip install -r requirements.txt
+./start.sh  # Automated setup: venv, dependencies, config validation
 ```
+
+The start script will:
+- ✅ Check Python version
+- ✅ Create and activate virtual environment
+- ✅ Install dependencies
+- ✅ Create .env from template
+- ✅ Validate configuration
 
 ### 2. Configure
 
+Edit `.env` with your API keys:
 ```bash
-cp .env.example .env
-# Edit .env with your API keys:
-# - OPENAI_API_KEY or ANTHROPIC_API_KEY
-# - JIRA credentials (optional for Phase 1)
+# Required for LLM extraction (choose one)
+LLM_PROVIDER=openai              # or 'anthropic'
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Optional - for Jira upload
+JIRA_URL=https://your-domain.atlassian.net
+JIRA_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your-api-token
 ```
 
 ### 3. Generate Tickets
 
 ```bash
-# Validate configuration
-python3 jira_gen.py validate
-
-# Extract tickets from text
+# Extract tickets with AI review
 python3 jira_gen.py parse your_notes.txt --project PROJ
 
-# Or from clipboard
-python3 jira_gen.py parse --clipboard --issue-type bug --project PROJ
+# Answer clarifying questions from Agent 2
+# > Q1: What authentication method? [Your answer...]
+
+# Output: jira_tickets_PROJ_task_20251123_155045.md
 ```
 
-**That's it!** The tool will extract structured, high-quality Jira tickets from your text.
+### 4. System Management
+
+```bash
+./status.sh  # Check system health (7-point check)
+./stop.sh    # Cleanup and deactivation
+```
+
+**That's it!** The two-agent system will extract and validate production-ready Jira tickets.
 
 ---
 
@@ -74,7 +93,7 @@ Epic: User Authentication System
 
 ## ✨ Key Features
 
-### Phase 1 (✅ Available Now)
+### Phase 1 (✅ Complete)
 
 - ✅ **AI-Powered Extraction**: Uses OpenAI/Anthropic to extract structured tickets
 - ✅ **4 Issue Types**: Tasks/Epics, Bug Reports, User Stories, Epic-only planning
@@ -83,12 +102,19 @@ Epic: User Authentication System
 - ✅ **Multiple Input Sources**: Files, clipboard, stdin
 - ✅ **Comprehensive Details**: Security, performance, testing, edge cases
 
-### Phase 2 (⏭️ Coming Soon)
+### Phase 2 Core (✅ Complete)
 
-- ⏭️ **Review Agent**: Validates completeness and asks clarifying questions
-- ⏭️ **Markdown Output**: Human-editable intermediate format
-- ⏭️ **Jira Integration**: Direct upload to Jira with proper linking
-- ⏭️ **Interactive Q&A**: Fill gaps through conversation
+- ✅ **Review Agent (Agent 2)**: Validates completeness and asks clarifying questions
+- ✅ **Markdown Output**: Human-editable timestamped markdown files
+- ✅ **Jira API Client**: Direct upload to Jira with parent-child linking
+- ✅ **Interactive Q&A**: Fill gaps through conversation with Agent 2
+- ✅ **Shell Scripts**: Automated setup, health check, and cleanup tools
+
+### Phase 2 UI (⏭️ Planned)
+
+- ⏭️ **Web Interface**: React + Flask/FastAPI for browser-based usage
+- ⏭️ **Visual Editor**: Edit markdown tickets before upload
+- ⏭️ **Real-time Preview**: See Jira tickets before creation
 
 ---
 
@@ -230,6 +256,209 @@ python3 jira_gen.py validate
 
 Shows current configuration and validates API keys.
 
+#### `upload` - Upload markdown tickets to Jira (Phase 2)
+
+```bash
+python3 jira_gen.py upload [MARKDOWN_FILE] [OPTIONS]
+```
+
+**Options:**
+- `--list`: List available markdown files
+- `--dry-run`: Test without actually uploading
+
+**Examples:**
+```bash
+# List available markdown files
+python3 jira_gen.py upload --list
+
+# Upload specific file
+python3 jira_gen.py upload jira_tickets_PROJ_task_20251123_155045.md
+
+# Test upload without creating tickets
+python3 jira_gen.py upload --dry-run jira_tickets_PROJ_task_20251123_155045.md
+```
+
+---
+
+## 🔧 Shell Scripts
+
+Three convenience scripts for system management:
+
+### `./start.sh` - Setup and Start
+
+**Purpose**: Automated environment setup and validation
+
+**What it does:**
+1. ✅ Checks Python 3 installation
+2. ✅ Creates virtual environment if missing
+3. ✅ Activates virtual environment
+4. ✅ Installs/updates dependencies from requirements.txt
+5. ✅ Creates .env file from template if missing
+6. ✅ Validates configuration
+7. ✅ Shows usage examples
+
+**Usage:**
+```bash
+./start.sh
+```
+
+**First-time setup:**
+```bash
+./start.sh
+# Prompts you to edit .env file with API keys
+# Run again after configuration:
+./start.sh
+```
+
+**Output Example:**
+```
+╔════════════════════════════════════════════╗
+║   JIRA Ticket Generator - Startup         ║
+╚════════════════════════════════════════════╝
+
+→ Checking Python version...
+✓ Python 3.11.5 found
+→ Activating virtual environment...
+✓ Virtual environment activated
+→ Checking dependencies...
+✓ All dependencies already installed
+→ Validating configuration...
+✓ Configuration is valid
+
+╔════════════════════════════════════════════╗
+║   Ready to use! Here's how:               ║
+╚════════════════════════════════════════════╝
+```
+
+---
+
+### `./status.sh` - System Health Check
+
+**Purpose**: Comprehensive 7-point system status check
+
+**What it checks:**
+1. ✅ Python installation and version
+2. ✅ Virtual environment status (exists and activated)
+3. ✅ Dependencies (click, pydantic, openai, anthropic)
+4. ✅ Configuration file (.env) existence and validity
+5. ✅ Configuration validation (API keys, Jira credentials)
+6. ✅ Recent activity (markdown files created)
+7. ✅ Disk space usage
+
+**Usage:**
+```bash
+./status.sh
+```
+
+**Output Example (Healthy System):**
+```
+╔════════════════════════════════════════════╗
+║   JIRA Ticket Generator - System Status   ║
+╚════════════════════════════════════════════╝
+
+[1/7] Python Installation
+      ✓ Python 3.11.5 installed
+
+[2/7] Virtual Environment
+      ✓ Virtual environment exists
+      ✓ Virtual environment active
+
+[3/7] Dependencies
+      ✓ All dependencies installed
+
+[4/7] Configuration File
+      ✓ .env file exists
+      ✓ LLM Provider: openai
+      ✓ OpenAI API key configured
+
+[5/7] Configuration Validation
+      ✓ Configuration valid
+      ✓ Project: PROJ
+
+[6/7] Recent Activity
+      ✓ 3 markdown file(s) total
+      ✓ 1 file(s) created in last 24h
+
+[7/7] Disk Space
+      ✓ Project size: 2.5M
+
+╔════════════════════════════════════════════╗
+║   ✓ System Status: HEALTHY                ║
+╚════════════════════════════════════════════╝
+
+🎉 All systems operational!
+
+Quick Actions:
+  • Generate tickets: python3 jira_gen.py parse input.txt --project PROJ
+  • List files:       python3 jira_gen.py upload --list
+```
+
+**Output Example (Issues Detected):**
+```
+[2/7] Virtual Environment
+      ✓ Virtual environment exists
+      ! Virtual environment not activated
+         → Run: source venv/bin/activate
+
+[3/7] Dependencies
+      ✗ Missing: click pydantic
+         → Run: pip3 install -r requirements.txt
+
+╔════════════════════════════════════════════╗
+║   ! System Status: NEEDS ATTENTION         ║
+╚════════════════════════════════════════════╝
+
+⚠️  Some issues detected. See above for details.
+
+Suggested Actions:
+  • Run setup:       ./start.sh
+  • Validate config: python3 jira_gen.py validate
+```
+
+---
+
+### `./stop.sh` - Cleanup and Shutdown
+
+**Purpose**: Deactivate environment and clean up old files
+
+**What it does:**
+1. ✅ Deactivates virtual environment
+2. 🗑️ Optionally deletes old markdown files (>7 days)
+3. 🗑️ Optionally cleans Python cache files (__pycache__, *.pyc)
+
+**Usage:**
+```bash
+./stop.sh
+```
+
+**Interactive Cleanup:**
+```
+╔════════════════════════════════════════════╗
+║   JIRA Ticket Generator - Cleanup         ║
+╚════════════════════════════════════════════╝
+
+→ Deactivating virtual environment...
+✓ Virtual environment deactivated
+
+→ Checking for old markdown files...
+! Found 5 markdown file(s) older than 7 days
+
+-rw-r--r--  jira_tickets_PROJ_20251110_143022.md
+-rw-r--r--  jira_tickets_TEST_20251112_091544.md
+...
+
+Do you want to delete these old files? (y/N): y
+✓ Old markdown files deleted
+
+→ Checking for Python cache...
+Do you want to clean Python cache files? (y/N): y
+✓ Python cache cleaned
+
+✓ Cleanup complete
+
+Tip: Run ./start.sh to restart the system
+```
+
 ---
 
 ### Input Sources
@@ -302,24 +531,30 @@ Console Output Display
   • All acceptance criteria shown
 ```
 
-### Phase 2 (Planned)
+### Phase 2 Core (✅ Complete)
 
 ```
          ↓
 Agent 2: Review Agent
-  • Validate completeness
-  • Identify gaps
-  • Ask clarifying questions
+  • Validate completeness (LLM or rule-based)
+  • Identify gaps and ambiguities
+  • Generate clarifying questions
+  • Production readiness check
          ↓
 User Interactive Q&A Session
+  • Present questions to user
+  • Collect answers
+  • Refine structure with feedback
          ↓
 Markdown Generation
-  • Timestamped files
-  • Human-editable format
+  • Timestamped files (jira_tickets_{PROJECT}_{TYPE}_{TIMESTAMP}.md)
+  • Human-editable hierarchical format
+  • Epics → Tasks → Acceptance Criteria structure
          ↓
 Jira API Upload
-  • Create epics and tasks
-  • Link relationships
+  • Create epics, tasks, bugs, stories
+  • Link parent-child relationships
+  • Set priorities and metadata
 ```
 
 ---
@@ -328,24 +563,32 @@ Jira API Upload
 
 ```
 jira-tool/
-├── jira_gen.py              # ✅ Main CLI (parse, validate)
+├── jira_gen.py              # ✅ Main CLI (parse, validate, upload)
 ├── config.py                # ✅ Configuration management
 ├── models.py                # ✅ Pydantic models (Task, Epic, Bug, Story)
 │
 ├── agents/
 │   ├── extraction_agent.py  # ✅ Agent 1: LLM extraction
-│   ├── prompts.py           # ✅ Prompts for all issue types
-│   └── review_agent.py      # ⏭️ Agent 2 (Phase 2)
+│   ├── review_agent.py      # ✅ Agent 2: Quality review & refinement
+│   └── prompts.py           # ✅ Prompts for all agents
+│
+├── markdown_utils.py        # ✅ Markdown generation & parsing
+├── jira_client.py           # ✅ Jira API integration
+│
+├── start.sh                 # ✅ Setup and startup script
+├── stop.sh                  # ✅ Cleanup and shutdown script
+├── status.sh                # ✅ System health check script
 │
 ├── .env                     # ✅ Your configuration (gitignored)
 ├── .env.example             # ✅ Configuration template
 ├── requirements.txt         # ✅ Dependencies
 │
 ├── test_*.txt               # ✅ Sample test inputs
-├── PHASE1_STATUS.md         # ✅ Implementation status
-├── TEST_REPORT.md           # ✅ Test results (16/16 passed!)
+├── jira_tickets_*.md        # ✅ Generated markdown files
 │
-└── jira_client.py           # ⏭️ Jira API (Phase 2)
+├── PHASE1_STATUS.md         # ✅ Phase 1 implementation status
+├── PHASE2_UI_DESIGN.md      # ✅ Phase 2 UI specifications
+└── TEST_REPORT.md           # ✅ Test results (16/16 passed!)
 ```
 
 ---
@@ -434,11 +677,18 @@ MIT License - see [LICENSE](LICENSE) file for details
 - ✅ High-quality output (6-8 acceptance criteria)
 - ✅ Comprehensive testing (16/16 passed)
 
-### ⏭️ Phase 2 (Planned)
-- ⏭️ Review Agent for validation
-- ⏭️ Interactive Q&A session
-- ⏭️ Markdown generation
-- ⏭️ Jira API integration
+### ✅ Phase 2 Core (Complete)
+- ✅ Review Agent (Agent 2) for quality validation
+- ✅ Interactive Q&A session for gap filling
+- ✅ Markdown generation with timestamped files
+- ✅ Jira API integration with parent-child linking
+- ✅ Shell scripts for system management
+- ✅ Enhanced CLI with upload command
+
+### ⏭️ Phase 2 UI (Planned)
+- ⏭️ Web interface (React + Flask/FastAPI)
+- ⏭️ Visual markdown editor
+- ⏭️ Real-time Jira preview
 - ⏭️ Automated test suite
 
 ---
