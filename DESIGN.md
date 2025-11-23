@@ -92,38 +92,94 @@ python jira_gen.py parse requirements.txt --issue-type story
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Phase 2 (Planned)
+### Phase 2 (Planned - Web UI)
 
 ```
-                 ▼
-  ┌─────────────────────────────────────────┐
-  │   ⏭️ AGENT 2: Review Agent              │
-  │   (agents/review_agent.py)              │
-  │   - Validate completeness               │
-  │   - Identify gaps                       │
-  │   - Ask clarifying questions            │
-  └──────────────┬──────────────────────────┘
-                 │
-                 ▼
-       User Interactive Q&A Session
-                 │
-                 ▼
-  ┌─────────────────────────────────────────┐
-  │   ⏭️ Markdown Generation                │
-  │   (markdown_utils.py)                   │
-  │   - Create timestamped files            │
-  │   - Human-editable format               │
-  └──────────────┬──────────────────────────┘
-                 │
-                 ▼
-  ┌─────────────────────────────────────────┐
-  │   ⏭️ Jira API Upload                    │
-  │   (jira_client.py)                      │
-  │   - Create epics                        │
-  │   - Create sub-tasks                    │
-  │   - Link relationships                  │
-  └─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│              JIRA Ticket Generator                          │
+│              (Phase 2: ⏭️ Web Interface)                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────────────────────────────────┐             │
+│  │   Web UI (React + Tailwind CSS)           │             │
+│  │   - Upload transcript files               │             │
+│  │   - Text box for manual input             │             │
+│  │   - Issue type selector                   │             │
+│  │   - Configuration panel                   │             │
+│  └──────────────┬────────────────────────────┘             │
+│                 │                                           │
+│                 ▼                                           │
+│  ┌─────────────────────────────────────────┐               │
+│  │   ⏭️ AGENT 2: Review Agent              │               │
+│  │   (agents/review_agent.py)              │               │
+│  │   - Validate completeness               │               │
+│  │   - Identify gaps                       │               │
+│  │   - Ask clarifying questions            │               │
+│  └──────────────┬──────────────────────────┘               │
+│                 │                                           │
+│                 ▼                                           │
+│       User Interactive Q&A Session (via Web UI)             │
+│                 │                                           │
+│                 ▼                                           │
+│  ┌─────────────────────────────────────────┐               │
+│  │   ⏭️ Markdown Generation & Editor       │               │
+│  │   (markdown_utils.py + UI Editor)       │               │
+│  │   - Create timestamped files            │               │
+│  │   - Live markdown preview               │               │
+│  │   - Human-editable format               │               │
+│  │   - Auto-save drafts                    │               │
+│  └──────────────┬──────────────────────────┘               │
+│                 │                                           │
+│                 ▼                                           │
+│  ┌─────────────────────────────────────────┐               │
+│  │   ⏭️ Jira API Upload (via UI)           │               │
+│  │   (jira_client.py + Upload Modal)       │               │
+│  │   - Create epics                        │               │
+│  │   - Create sub-tasks                    │               │
+│  │   - Link relationships                  │               │
+│  │   - Progress tracking                   │               │
+│  │   - Success/error reporting             │               │
+│  └─────────────────────────────────────────┘               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**Phase 2 UI Architecture** (React + Flask/FastAPI):
+
+```
+┌──────────────────────┐         ┌──────────────────────┐
+│  React Frontend      │         │  Flask/FastAPI       │
+│  (Tailwind CSS)      │◄───────►│  Backend             │
+├──────────────────────┤         ├──────────────────────┤
+│ - Input Section      │         │ POST /api/parse      │
+│ - Config Panel       │         │ GET  /api/sessions   │
+│ - Results Display    │         │ POST /api/jira/upload│
+│ - Markdown Editor    │         │ GET  /api/config     │
+│ - Upload Modal       │         │ POST /api/review     │
+│ - Sessions Sidebar   │         └──────────────────────┘
+│ - Settings Modal     │                    │
+└──────────────────────┘                    │
+         │                                  ▼
+         │                    ┌──────────────────────┐
+         │                    │ Existing CLI Agents  │
+         └───────────────────►│ - ExtractionAgent    │
+                              │ - ReviewAgent        │
+                              │ - JiraClient         │
+                              └──────────────────────┘
+```
+
+**Key Phase 2 Features**:
+- 📤 Drag & drop file upload for meeting transcripts
+- ✏️ Auto-expanding text area for manual input
+- 🎨 Visual issue type selector (Task/Bug/Story/Epic-only)
+- 📝 Full-featured markdown editor with live preview
+- 💾 Auto-save drafts to prevent data loss
+- 📊 Previous sessions sidebar for easy access
+- ⚙️ Settings modal for API key configuration
+- 🚀 Jira upload progress tracking
+- ⌨️ Keyboard shortcuts for power users
+
+See [PHASE2_UI_DESIGN.md](PHASE2_UI_DESIGN.md) for complete UI mockups and specifications.
 
 ---
 
@@ -154,14 +210,42 @@ jira-ticket-tool/
 ├── test_bug.txt
 ├── test_story.txt
 ├── test_epic.txt
+├── test_empty.txt
 │
 ├── PHASE1_STATUS.md           # ✅ Implementation status tracking
 ├── TEST_REPORT.md             # ✅ Comprehensive test results
+├── PHASE2_UI_DESIGN.md        # ✅ Phase 2 UI specifications
 │
-└── tests/                     # ⏭️ Test suite (Phase 2)
-    ├── test_extraction_agent.py
-    ├── test_review_agent.py
-    └── test_integration.py
+├── tests/                     # ⏭️ Test suite (Phase 2)
+│   ├── test_extraction_agent.py
+│   ├── test_review_agent.py
+│   └── test_integration.py
+│
+└── ui/                        # ⏭️ Phase 2 Web Interface
+    ├── frontend/              # React application
+    │   ├── src/
+    │   │   ├── components/
+    │   │   │   ├── InputSection.jsx
+    │   │   │   ├── ConfigPanel.jsx
+    │   │   │   ├── ResultsDisplay.jsx
+    │   │   │   ├── MarkdownEditor.jsx
+    │   │   │   ├── UploadModal.jsx
+    │   │   │   ├── SessionsSidebar.jsx
+    │   │   │   └── SettingsModal.jsx
+    │   │   ├── App.jsx
+    │   │   └── index.jsx
+    │   ├── package.json
+    │   └── tailwind.config.js
+    │
+    └── backend/               # Flask/FastAPI backend
+        ├── api/
+        │   ├── parse.py       # POST /api/parse
+        │   ├── sessions.py    # GET /api/sessions
+        │   ├── upload.py      # POST /api/jira/upload
+        │   ├── config.py      # GET /api/config
+        │   └── review.py      # POST /api/review
+        ├── app.py             # Main Flask/FastAPI app
+        └── requirements.txt
 ```
 
 ---
