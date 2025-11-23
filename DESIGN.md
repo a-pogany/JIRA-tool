@@ -4,10 +4,32 @@
 
 Your insight is correct - we need **TWO intelligent agents**:
 
-1. **Extraction Agent**: Breaks down text into structured tasks
+1. **Extraction Agent**: Breaks down text into structured tickets (Tasks/Epics OR Bug Reports)
 2. **Review Agent**: Validates completeness, spots gaps, asks clarifying questions
 
 This ensures high-quality output before creating Jira tickets.
+
+### Flexible Issue Type Support
+
+The tool supports **multiple Jira issue types** through a CLI parameter:
+
+**Supported Issue Types:**
+- **`task`** (default): Creates Epics + Tasks for feature development
+- **`bug`**: Creates Bug/Problem Reports for defect tracking
+- **`story`**: Creates User Stories for agile workflows
+- **`epic-only`**: Creates only Epics (no sub-tasks)
+
+**Usage:**
+```bash
+# Feature development (default)
+python jira_gen.py parse input.txt --issue-type task
+
+# Bug reports
+python jira_gen.py parse bug_description.txt --issue-type bug
+
+# User stories
+python jira_gen.py parse requirements.txt --issue-type story
+```
 
 ---
 
@@ -92,32 +114,162 @@ jira-ticket-tool/
 
 ---
 
+## Data Models (models.py)
+
+**Purpose**: Pydantic models for different Jira issue types
+
+```python
+# models.py
+from pydantic import BaseModel, Field
+from typing import List, Optional, Literal
+
+# ═══════════════════════════════════════════════════════
+# TASK/EPIC MODELS (for feature development)
+# ═══════════════════════════════════════════════════════
+
+class Task(BaseModel):
+    """Individual task (sub-task of Epic)"""
+    title: str = Field(..., min_length=5, max_length=200)
+    description: str
+    acceptance_criteria: List[str] = Field(default_factory=list)
+    technical_notes: Optional[str] = None
+    priority: Literal['High', 'Medium', 'Low'] = 'Medium'
+    estimated_effort: Optional[Literal['Small', 'Medium', 'Large']] = None
+
+class Epic(BaseModel):
+    """Epic (high-level feature/initiative)"""
+    title: str = Field(..., min_length=5, max_length=200)
+    description: str
+    business_value: Optional[str] = None
+    priority: Literal['High', 'Medium', 'Low'] = 'Medium'
+    tasks: List[Task] = Field(default_factory=list)
+
+# ═══════════════════════════════════════════════════════
+# BUG REPORT MODELS
+# ═══════════════════════════════════════════════════════
+
+class Environment(BaseModel):
+    """Environment where bug occurs"""
+    browser: Optional[str] = None
+    os: Optional[str] = None
+    device: Optional[str] = None
+    user_role: Optional[str] = None
+    data_conditions: Optional[str] = None
+
+class TechnicalDetails(BaseModel):
+    """Technical debugging information"""
+    error_message: Optional[str] = None
+    console_logs: Optional[str] = None
+    affected_code: Optional[str] = None
+    api_calls: Optional[str] = None
+    stack_trace: Optional[str] = None
+
+class Bug(BaseModel):
+    """Bug/Problem report"""
+    summary: str = Field(..., min_length=10, max_length=200)
+    description: str = Field(..., min_length=20)
+    severity: Literal['Critical', 'High', 'Medium', 'Low'] = 'Medium'
+    priority: Literal['Critical', 'High', 'Medium', 'Low'] = 'Medium'
+    reproduction_steps: List[str] = Field(..., min_items=3)
+    environment: Environment = Field(default_factory=Environment)
+    technical_details: Optional[TechnicalDetails] = None
+    acceptance_criteria: List[str] = Field(default_factory=list)
+    suggested_fix: Optional[str] = None
+
+# ═══════════════════════════════════════════════════════
+# USER STORY MODELS
+# ═══════════════════════════════════════════════════════
+
+class UserStory(BaseModel):
+    """User story (agile format)"""
+    title: str = Field(..., min_length=5, max_length=200)
+    as_a: str = Field(..., description="User role")
+    i_want_to: str = Field(..., description="User goal")
+    so_that: str = Field(..., description="Business value")
+    acceptance_criteria: List[str] = Field(..., min_items=3)
+    definition_of_done: List[str] = Field(default_factory=list)
+    priority: Literal['High', 'Medium', 'Low'] = 'Medium'
+    story_points: Optional[int] = Field(None, ge=1, le=13)
+
+# ═══════════════════════════════════════════════════════
+# TICKET STRUCTURE (unified container)
+# ═══════════════════════════════════════════════════════
+
+class TicketStructure(BaseModel):
+    """Container for all extracted tickets"""
+    project_key: str = Field(..., pattern=r'^[A-Z][A-Z0-9]{1,9}$')
+    issue_type: Literal['task', 'bug', 'story', 'epic-only'] = 'task'
+
+    # For task/epic-only types
+    epics: List[Epic] = Field(default_factory=list)
+
+    # For bug type
+    bugs: List[Bug] = Field(default_factory=list)
+
+    # For story type
+    stories: List[UserStory] = Field(default_factory=list)
+
+    @property
+    def total_tasks(self) -> int:
+        """Total number of tasks across all epics"""
+        return sum(len(epic.tasks) for epic in self.epics)
+
+    @property
+    def total_bugs(self) -> int:
+        """Total number of bugs"""
+        return len(self.bugs)
+
+    @property
+    def total_stories(self) -> int:
+        """Total number of user stories"""
+        return len(self.stories)
+
+    @property
+    def total_issues(self) -> int:
+        """Total number of all issues"""
+        if self.issue_type == 'task':
+            return len(self.epics) + self.total_tasks
+        elif self.issue_type == 'bug':
+            return self.total_bugs
+        elif self.issue_type == 'story':
+            return self.total_stories
+        elif self.issue_type == 'epic-only':
+            return len(self.epics)
+        return 0
+```
+
+---
+
 ## Agent 1: Extraction Agent
 
-**Purpose**: Extract structured tasks from unstructured text
+**Purpose**: Extract structured tickets from unstructured text (supports multiple issue types)
 
 ```python
 # agents/extraction_agent.py
-from models import TicketStructure, Epic, Task
-from typing import Optional
+from models import TicketStructure, Epic, Task, Bug
+from typing import Optional, Literal
+
+IssueType = Literal['task', 'bug', 'story', 'epic-only']
 
 class ExtractionAgent:
     """
-    Agent 1: Extract epics and tasks from text
+    Agent 1: Extract epics, tasks, or bugs from text
 
     Responsibilities:
-    - Identify main features/epics
-    - Break down into tasks
-    - Extract acceptance criteria
-    - Detect priorities from language
+    - Identify issue structure based on type (task/bug/story/epic-only)
+    - Extract appropriate fields for each issue type
+    - Extract acceptance criteria or reproduction steps
+    - Detect priorities and severity
     """
 
-    def __init__(self, llm_client: Optional[object] = None):
+    def __init__(self, llm_client: Optional[object] = None, issue_type: IssueType = 'task'):
         """
         Args:
             llm_client: OpenAI/Anthropic client (optional)
+            issue_type: Type of Jira issues to generate (task, bug, story, epic-only)
         """
         self.llm_client = llm_client
+        self.issue_type = issue_type
 
     def extract(self, text: str, project_key: str) -> TicketStructure:
         """
@@ -534,6 +686,103 @@ QUALITY STANDARDS:
 - Think like a developer who will implement this
 """
 
+BUG_EXTRACTION_PROMPT = """
+You are a QA engineer extracting FIRST-CLASS Bug Reports from text.
+
+Text:
+{text}
+
+Project Key: {project_key}
+
+BUG REPORT EXTRACTION CHECKLIST - Extract ALL of the following:
+
+1. **BUG SUMMARY** (Clear, specific title)
+   - WHAT is broken (specific feature/component)
+   - WHERE it occurs (which page/module)
+   - WHEN it happens (under what conditions)
+
+2. **DESCRIPTION** (Detailed problem statement)
+   - Current behavior (what's happening)
+   - Expected behavior (what should happen)
+   - Impact on users/business
+
+3. **REPRODUCTION STEPS** (Exact, numbered steps)
+   - Step 1: Preconditions (initial state)
+   - Step 2-N: Actions to reproduce
+   - Must be reproducible by any developer
+
+4. **ENVIRONMENT** (Where bug occurs)
+   - Browser/OS/Device
+   - Version numbers
+   - User role/permissions
+   - Data conditions
+
+5. **SEVERITY & PRIORITY**
+   - Critical: System down, data loss, security breach
+   - High: Major feature broken, workaround exists
+   - Medium: Minor feature broken, low impact
+   - Low: Cosmetic, typo, enhancement
+
+6. **TECHNICAL DETAILS** (Extract if mentioned)
+   - Error messages (exact text)
+   - Stack traces
+   - Console logs
+   - Network requests (failed API calls)
+   - Database state
+
+7. **ACCEPTANCE CRITERIA** (Fix validation)
+   - How to verify fix works
+   - Regression test scenarios
+   - Edge cases to check
+
+Return as JSON:
+{{
+  "bugs": [
+    {{
+      "summary": "Login button does nothing when clicked on Safari iOS",
+      "description": "When users click the login button on Safari iOS 15+, nothing happens. Expected: Login form should submit and redirect to dashboard. Impact: iOS users cannot access the platform.",
+      "severity": "High",
+      "priority": "High",
+      "reproduction_steps": [
+        "Open Safari on iOS 15.0+",
+        "Navigate to https://app.example.com/login",
+        "Enter valid email and password",
+        "Click 'Login' button",
+        "Observe: No action, no error, button stays in idle state"
+      ],
+      "environment": {{
+        "browser": "Safari iOS 15.0+",
+        "os": "iOS 15.0-17.0",
+        "user_role": "Any",
+        "data_conditions": "Valid user credentials"
+      }},
+      "technical_details": {{
+        "error_message": "None visible",
+        "console_logs": "Uncaught TypeError: Cannot read property 'submit' of null",
+        "affected_code": "LoginForm.tsx line 45",
+        "api_calls": "POST /api/auth/login never fires"
+      }},
+      "acceptance_criteria": [
+        "Functional: Login button submits form on Safari iOS 15+",
+        "Validation: Form validates before submission",
+        "Error: Network errors show user-friendly message",
+        "Regression: Works on Chrome, Firefox, Safari desktop",
+        "Edge: Works with keyboard 'Enter' key submission",
+        "Edge: Works with iOS autocomplete password fill"
+      ],
+      "suggested_fix": "Add touchend event handler for iOS compatibility"
+    }}
+  ]
+}}
+
+QUALITY STANDARDS:
+- Each bug must have AT LEAST 5 reproduction steps
+- Include exact error messages and console logs when available
+- Specify affected environment precisely (browser version, OS, device)
+- Provide clear acceptance criteria for fix verification
+- Suggest technical cause if obvious from description
+"""
+
 REVIEW_PROMPT = """
 You are a senior software architect conducting a THOROUGH QUALITY REVIEW of Jira tickets.
 
@@ -723,8 +972,12 @@ def cli():
 @cli.command()
 @click.argument('input_file', type=click.Path(exists=True))
 @click.option('--project', '-p', help='Project key')
+@click.option('--issue-type', '-t',
+              type=click.Choice(['task', 'bug', 'story', 'epic-only'], case_sensitive=False),
+              default='task',
+              help='Jira issue type: task (default), bug, story, epic-only')
 @click.option('--skip-review', is_flag=True, help='Skip review agent')
-def parse(input_file, project, skip_review):
+def parse(input_file, project, issue_type, skip_review):
     """Parse text with two-agent system"""
 
     # Load config
@@ -737,15 +990,16 @@ def parse(input_file, project, skip_review):
         return
 
     project_key = project or config.jira_project
+    issue_type = issue_type.lower()
 
     # Setup LLM client (if available)
     llm_client = None
     if config.has_llm:
         from openai import OpenAI
         llm_client = OpenAI(api_key=config.openai_key)
-        click.echo("🤖 Using LLM-powered agents")
+        click.echo(f"🤖 Using LLM-powered agents (issue type: {issue_type})")
     else:
-        click.echo("📝 Using simple rule-based agents")
+        click.echo(f"📝 Using simple rule-based agents (issue type: {issue_type})")
 
     # Read input
     text = Path(input_file).read_text()
@@ -753,9 +1007,9 @@ def parse(input_file, project, skip_review):
     # ═══════════════════════════════════════════════════════
     # AGENT 1: EXTRACTION
     # ═══════════════════════════════════════════════════════
-    click.echo("\n🔍 Agent 1: Extracting structure from text...")
+    click.echo(f"\n🔍 Agent 1: Extracting {issue_type} structure from text...")
 
-    extraction_agent = ExtractionAgent(llm_client)
+    extraction_agent = ExtractionAgent(llm_client, issue_type=issue_type)
     structure = extraction_agent.extract(text, project_key)
 
     click.echo(f"  ✅ Extracted {len(structure.epics)} epics, {structure.total_tasks} tasks")
@@ -1254,6 +1508,169 @@ SUCCESS METRICS:
 ✅ Implementable (technical details provided)
 ✅ Secure (security considerations baked in)
 ✅ Production-ready (rollback, monitoring, alerts)
+
+---
+
+## Issue Type Usage Examples
+
+### Example 1: Feature Development (default: `--issue-type task`)
+
+**Input:**
+```bash
+python jira_gen.py parse feature_request.txt --issue-type task --project PROJ
+```
+
+**Input text:**
+```
+Build user authentication system with email/password login and OAuth support.
+```
+
+**Output:** Epics + Tasks with acceptance criteria, technical specs, testing requirements
+
+---
+
+### Example 2: Bug Report (`--issue-type bug`)
+
+**Input:**
+```bash
+python jira_gen.py parse bug_report.txt --issue-type bug --project PROJ
+```
+
+**Input text:**
+```
+Login button doesn't work on Safari iOS. When I click it, nothing happens.
+I'm using iPhone 13 with iOS 16.5. Other browsers work fine.
+```
+
+**Output:**
+```
+Bug: Login button non-functional on Safari iOS 15+
+
+Description: When users click the login button on Safari iOS 15+, form submission
+            does not trigger. Expected: Form should submit and redirect to dashboard.
+            Impact: iOS Safari users cannot access platform (estimated 15% of user base).
+
+Severity: High
+Priority: High
+
+Environment:
+  Browser: Safari iOS 15.0+
+  OS: iOS 15.0-17.0
+  Device: iPhone 13 (tested)
+  User Role: Any authenticated user
+
+Reproduction Steps:
+  1. Open Safari browser on iPhone running iOS 15.0+
+  2. Navigate to https://app.example.com/login
+  3. Enter valid email: test@example.com
+  4. Enter valid password
+  5. Tap 'Login' button
+  6. Observe: No action occurs, no error message, button remains idle
+
+Technical Details:
+  Console Error: "Uncaught TypeError: Cannot read property 'submit' of null"
+  Affected Code: LoginForm.tsx line 45 (submit handler)
+  API Calls: POST /api/auth/login never fires
+  Network: No requests in Safari DevTools
+
+Acceptance Criteria (Fix Verification):
+  - Functional: Login button successfully submits form on Safari iOS 15+
+  - Functional: User redirected to dashboard after successful login
+  - Error Handling: Invalid credentials show proper error message
+  - Regression: Login still works on Chrome iOS, Firefox iOS, Safari desktop
+  - Edge Case: Form submission works via keyboard 'Enter' key
+  - Edge Case: iOS autocomplete password fill doesn't break submission
+  - Performance: Form submits within 500ms of button tap
+
+Suggested Fix: Add touchend event listener for iOS compatibility, ensure form
+              reference exists before calling submit() method.
+```
+
+---
+
+### Example 3: User Stories (`--issue-type story`)
+
+**Input:**
+```bash
+python jira_gen.py parse user_stories.txt --issue-type story --project PROJ
+```
+
+**Input text:**
+```
+As a user, I want to export my data to CSV so that I can analyze it in Excel.
+```
+
+**Output:**
+```
+Story: User data export to CSV
+
+As a: Registered user
+I want to: Export my transaction history to CSV format
+So that: I can perform custom analysis in Excel/Google Sheets
+
+Acceptance Criteria:
+  - User can click "Export to CSV" button on transactions page
+  - CSV file downloads immediately with all transaction data
+  - CSV includes columns: Date, Description, Amount, Category, Status
+  - CSV properly formatted (comma-separated, quoted strings, UTF-8 encoding)
+  - Export includes only user's own data (security check)
+  - Export works for datasets up to 10,000 rows without timeout
+  - Loading indicator shown during export generation
+
+Definition of Done:
+  - Feature works in Chrome, Firefox, Safari
+  - Unit tests cover CSV generation logic
+  - Integration test verifies correct data exported
+  - Security test confirms no data leakage between users
+  - Documentation updated with export instructions
+```
+
+---
+
+### Example 4: Epic Only (`--issue-type epic-only`)
+
+**Input:**
+```bash
+python jira_gen.py parse epic_definition.txt --issue-type epic-only --project PROJ
+```
+
+**Input text:**
+```
+Implement comprehensive notification system supporting email, SMS, and push notifications
+with user preferences and delivery tracking.
+```
+
+**Output:** Single Epic with high-level description, no sub-tasks (for later manual breakdown)
+
+---
+
+## Issue Type Quick Reference
+
+| Issue Type | CLI Parameter | Use Case | Output | Key Fields |
+|------------|---------------|----------|--------|------------|
+| **Task** (default) | `--issue-type task` | Feature development, new functionality | Epics + Tasks | Title, Description, Acceptance Criteria, Technical Notes |
+| **Bug** | `--issue-type bug` | Defect reports, problem tracking | Bug Reports | Summary, Reproduction Steps, Environment, Severity, Technical Details |
+| **Story** | `--issue-type story` | Agile user stories | User Stories | As a/I want to/So that, Acceptance Criteria, Definition of Done |
+| **Epic Only** | `--issue-type epic-only` | High-level planning | Epics only (no tasks) | Title, Description, Business Value |
+
+### CLI Usage Patterns
+
+```bash
+# Feature development with tasks and epics
+python jira_gen.py parse feature.txt --issue-type task --project PROJ
+
+# Bug report from clipboard
+python jira_gen.py parse --clipboard --issue-type bug --project PROJ
+
+# User stories from text file
+python jira_gen.py parse stories.txt --issue-type story --project PROJ
+
+# Epic-level planning without sub-tasks
+python jira_gen.py parse roadmap.txt --issue-type epic-only --project PROJ
+
+# Skip review agent for faster processing (lower quality)
+python jira_gen.py parse input.txt --issue-type bug --skip-review
+```
 
 ---
 
