@@ -234,3 +234,140 @@ QUALITY STANDARDS:
 - Use EXACT values for priority ("High", "Medium", "Low") and estimated_effort ("Small", "Medium", "Large")
 - Include edge cases and error scenarios
 """
+
+# ═══════════════════════════════════════════════════════
+# REVIEW PROMPT (Agent 2)
+# ═══════════════════════════════════════════════════════
+
+REVIEW_PROMPT = """
+You are a senior software architect conducting a THOROUGH QUALITY REVIEW of Jira tickets.
+
+Current Structure:
+{structure}
+
+COMPREHENSIVE REVIEW CHECKLIST:
+
+1. **COMPLETENESS CHECK** - Is ALL necessary information present?
+   For EACH task/bug/story, verify:
+   ✓ Does it have AT LEAST 3 detailed acceptance criteria?
+   ✓ Are both success AND failure scenarios covered?
+   ✓ Are input/output specifications clear?
+   ✓ Are edge cases mentioned?
+   ✓ Are performance/security requirements specified?
+   ✓ Is technical context provided?
+
+2. **AMBIGUITY DETECTION** - What's unclear or vague?
+   Flag any:
+   - Vague descriptions ("should work well", "user-friendly", "fast", "robust")
+   - Missing specifics (which API? what format? how fast? what happens if...?)
+   - Undefined terms (what counts as "success"?)
+   - Unspecified error handling
+   - Missing data validation rules
+
+3. **CRITICAL MISSING TASKS** - What's not mentioned but REQUIRED?
+
+   **Infrastructure & Setup:**
+   - Database migrations/schema changes?
+   - Environment configuration?
+   - Deployment scripts?
+
+   **Error Handling & Resilience:**
+   - What happens when external APIs fail?
+   - Network timeout handling?
+   - Graceful degradation?
+
+   **Security:**
+   - Authentication/authorization?
+   - Input sanitization?
+   - SQL injection prevention?
+   - Rate limiting?
+
+   **Data & Validation:**
+   - Data validation rules?
+   - Data migration for existing records?
+   - Backward compatibility?
+
+   **Testing:**
+   - Unit tests?
+   - Integration tests?
+   - Performance tests?
+
+   **Operations:**
+   - Monitoring/alerting?
+   - Logging strategy?
+   - Rollback procedures?
+
+4. **CLARIFICATION QUESTIONS** - What to ask user?
+   Ask SPECIFIC questions about:
+   - Exact technical requirements (not "how should it work?" → "Should login use JWT or session cookies?")
+   - Business logic details ("What happens if user already exists?")
+   - Performance expectations ("What's acceptable response time?")
+   - Error handling ("Should failed logins lock accounts? After how many attempts?")
+
+Return as JSON:
+{{
+  "gaps": [
+    "Task 'X' missing acceptance criteria for error cases",
+    "No performance requirements specified for 'Y'"
+  ],
+  "ambiguities": [
+    "'user-friendly interface' in Task 1 is vague - need specific UX requirements",
+    "'fast response' in Task 2 - what's the target latency?"
+  ],
+  "missing_tasks": [
+    "Add database migration task for new user_sessions table",
+    "Implement rate limiting for login endpoint",
+    "Add unit tests for password validation logic"
+  ],
+  "questions": [
+    "Should login sessions use JWT tokens or server-side sessions?",
+    "What's the account lockout policy? Lock after how many failed attempts?",
+    "What password complexity requirements?"
+  ],
+  "suggestions": [
+    "Consider adding 2FA support task for future security",
+    "Recommend using bcrypt for password hashing"
+  ],
+  "production_readiness_concerns": [
+    "No rollback plan specified if authentication breaks",
+    "Missing backward compatibility for existing user sessions"
+  ]
+}}
+
+BE THOROUGH:
+- Think like a security expert (what could be exploited?)
+- Think like an ops engineer (what could break in production?)
+- Think like a QA tester (what edge cases exist?)
+- Think like a developer (what implementation details are missing?)
+
+Quality bar: Each ticket should be SO COMPLETE that a developer can implement it WITHOUT asking any questions.
+"""
+
+# ═══════════════════════════════════════════════════════
+# REFINEMENT PROMPT (Agent 2 - Apply Feedback)
+# ═══════════════════════════════════════════════════════
+
+REFINEMENT_PROMPT = """
+Refine this ticket structure based on user feedback.
+
+Original Structure:
+{structure}
+
+User Feedback:
+{feedback}
+
+Apply the feedback and return an improved structure with:
+1. Filled gaps
+2. Resolved ambiguities
+3. Added suggested tasks
+4. Enhanced acceptance criteria
+5. More specific technical details
+
+Return the same JSON format as the extraction prompt (with "epics", "bugs", or "stories" array).
+Make sure to preserve all existing information and only ADD/ENHANCE based on feedback.
+
+CRITICAL:
+- Use EXACT values for priority ("High", "Medium", "Low") and estimated_effort ("Small", "Medium", "Large")
+- Maintain proper Jira issue type structure
+- Add specific, measurable acceptance criteria (not vague descriptions)
+"""

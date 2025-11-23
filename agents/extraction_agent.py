@@ -97,23 +97,8 @@ class ExtractionAgent:
             # Parse JSON response
             data = json.loads(json_text)
 
-            # Create TicketStructure with parsed models
-            from models import Epic, Bug, UserStory
-
-            structure = TicketStructure(
-                project_key=project_key,
-                issue_type=self.issue_type
-            )
-
-            # Populate based on issue type - parse dicts into Pydantic models
-            if self.issue_type == 'bug':
-                structure.bugs = [Bug(**bug_data) for bug_data in data.get('bugs', [])]
-            elif self.issue_type == 'story':
-                structure.stories = [UserStory(**story_data) for story_data in data.get('stories', [])]
-            else:  # task or epic-only
-                structure.epics = [Epic(**epic_data) for epic_data in data.get('epics', [])]
-
-            return structure
+            # Use helper method to parse JSON into Pydantic models
+            return self._parse_llm_response(data, project_key, self.issue_type)
 
         except Exception as e:
             print(f"LLM extraction failed: {e}")
@@ -156,5 +141,34 @@ class ExtractionAgent:
                 ]
             )
             structure.epics = [epic]
+
+        return structure
+
+    def _parse_llm_response(self, data: dict, project_key: str, issue_type: str) -> TicketStructure:
+        """
+        Parse LLM JSON response into Pydantic models
+
+        Args:
+            data: JSON dict from LLM
+            project_key: Jira project key
+            issue_type: Issue type (task, bug, story, epic-only)
+
+        Returns:
+            TicketStructure with properly typed models
+        """
+        from models import Epic, Bug, UserStory
+
+        structure = TicketStructure(
+            project_key=project_key,
+            issue_type=issue_type
+        )
+
+        # Populate based on issue type - parse dicts into Pydantic models
+        if issue_type == 'bug':
+            structure.bugs = [Bug(**bug_data) for bug_data in data.get('bugs', [])]
+        elif issue_type == 'story':
+            structure.stories = [UserStory(**story_data) for story_data in data.get('stories', [])]
+        else:  # task or epic-only
+            structure.epics = [Epic(**epic_data) for epic_data in data.get('epics', [])]
 
         return structure

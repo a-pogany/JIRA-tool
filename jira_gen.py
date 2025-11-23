@@ -11,6 +11,9 @@ from pathlib import Path
 from config import config
 from models import IssueType
 from agents.extraction_agent import ExtractionAgent
+from agents.review_agent import ReviewAgent
+from markdown_utils import write_markdown, generate_filename, list_markdown_files
+from jira_client import JiraClient
 
 
 @click.group()
@@ -114,13 +117,50 @@ def parse(input_file, project, issue_type, clipboard, skip_review):
     if structure.stories:
         click.echo(f"   Stories: {len(structure.stories)}")
 
-    # TODO: Agent 2 review (Phase 2)
-    if not skip_review:
-        click.echo("\n⏭️  Agent 2 review not yet implemented (coming in Phase 2)")
+    # Agent 2: Review (if not skipped)
+    if not skip_review and llm_client:
+        click.echo("\n🔍 Agent 2: Reviewing for completeness...")
+        review_agent = ReviewAgent(llm_client)
+        review = review_agent.review(structure)
 
-    # TODO: Save to markdown (Phase 2)
-    click.echo("\n📄 Markdown generation not yet implemented (coming in Phase 2)")
-    click.echo("   For now, showing extracted structure:\n")
+        if review.has_issues:
+            click.echo(f"\n{review}")
+
+            # Ask if user wants to answer questions
+            if review.questions:
+                click.echo("\n💬 Agent 2 has questions to improve quality.")
+                answer_questions = click.confirm("Would you like to answer them now?", default=True)
+
+                if answer_questions:
+                    user_answers = {}
+                    for i, question in enumerate(review.questions, 1):
+                        answer = click.prompt(f"\n  Q{i}: {question}", default="", show_default=False)
+                        if answer:
+                            user_answers[question] = answer
+
+                    if user_answers:
+                        click.echo("\n🔄 Refining structure based on your answers...")
+                        structure = review_agent.apply_feedback(structure, user_answers)
+                        click.echo("   ✅ Structure refined")
+        else:
+            click.echo("   ✅ No issues found - structure looks good!")
+
+    elif not skip_review:
+        click.echo("\n⏭️  Agent 2 review skipped (LLM not configured)")
+
+    # Save to markdown
+    click.echo("\n📄 Generating markdown file...")
+    filename = generate_filename(project_key, issue_type)
+    output_path = Path(filename)
+    write_markdown(structure, output_path)
+    click.echo(f"   ✅ Saved to: {filename}")
+
+    click.echo(f"\n💡 Next steps:")
+    click.echo(f"   1. Review the markdown file: {filename}")
+    click.echo(f"   2. Edit if needed")
+    click.echo(f"   3. Upload to Jira: python3 jira_gen.py upload {filename}")
+
+    # Show summary
 
     # Display extracted content
     if structure.epics:
@@ -185,6 +225,68 @@ def validate():
         click.echo(f"   Project Key: {config.jira_project or '(not set)'}")
         click.echo(f"   LLM Provider: {config.llm_provider}")
         click.echo(f"   LLM Model: {config.llm_model}")
+
+
+@cli.command()
+@click.argument('markdown_file', type=click.Path(exists=True), required=False)
+@click.option('--list', 'list_files', is_flag=True, help='List available markdown files')
+@click.option('--dry-run', is_flag=True, help='Test without actually uploading to Jira')
+def upload(markdown_file, list_files, dry_run):
+    """
+    Upload markdown tickets to Jira
+
+    Examples:
+        jira_gen.py upload jira_tickets_PROJ_task_20250123_143022.md
+        jira_gen.py upload --list
+        jira_gen.py upload --dry-run jira_tickets_PROJ_task_20250123_143022.md
+    """
+    # List mode
+    if list_files:
+        md_files = list_markdown_files()
+        if md_files:
+            click.echo("📂 Available markdown files (newest first):\n")
+            for i, file in enumerate(md_files, 1):
+                # Get file size and modification time
+                size = file.stat().st_size
+                mtime = file.stat().st_mtime
+                from datetime import datetime
+                time_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                click.echo(f"  {i}. {file.name}")
+                click.echo(f"     Size: {size:,} bytes | Modified: {time_str}")
+        else:
+            click.echo("No markdown files found in current directory")
+        return
+
+    # Upload mode
+    if not markdown_file:
+        click.echo("Error: Provide markdown file to upload or use --list", err=True)
+        sys.exit(1)
+
+    # Validate Jira configuration
+    errors = config.validate()
+    if errors:
+        click.echo("❌ Configuration validation failed:", err=True)
+        for error in errors:
+            click.echo(f"  - {error}", err=True)
+        sys.exit(1)
+
+    # Note: This is a simplified implementation
+    # Full implementation would parse markdown back to TicketStructure
+    # For now, we'll show a message
+    click.echo(f"\n🚀 JIRA Upload")
+    click.echo(f"   File: {markdown_file}")
+    click.echo(f"   Jira URL: {config.jira_url}")
+    click.echo(f"   Project: {config.jira_project}")
+
+    if dry_run:
+        click.echo("\n⚠️  DRY RUN MODE - No tickets will be created")
+
+    click.echo("\n⚠️  Upload functionality is simplified in Phase 2 core")
+    click.echo("   Full markdown → Jira upload will be available in Phase 2 UI")
+    click.echo("\n💡 For now:")
+    click.echo("   1. Review the generated markdown file")
+    click.echo("   2. Manually copy content to Jira")
+    click.echo("   3. Or wait for Phase 2 UI with full upload support")
 
 
 if __name__ == '__main__':
