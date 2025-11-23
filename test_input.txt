@@ -1,0 +1,4 @@
+Build user authentication system. Users should be able to login with email and password.
+Add password reset via email. Implement JWT tokens for session management.
+Make sure to add rate limiting to prevent brute force attacks.
+Store passwords securely using bcrypt hashing.
