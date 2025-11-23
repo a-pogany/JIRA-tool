@@ -1,11 +1,18 @@
 # JIRA Ticket Generator - Two-Agent Design Specification
 
+## Implementation Status
+
+**Phase 1**: ✅ **COMPLETE** - Core foundation and Extraction Agent
+**Phase 2**: ⏭️ Planned - Review Agent, Markdown, Jira Integration
+
+See [PHASE1_STATUS.md](PHASE1_STATUS.md) and [TEST_REPORT.md](TEST_REPORT.md) for detailed implementation status.
+
 ## Design Philosophy
 
-Your insight is correct - we need **TWO intelligent agents**:
+The tool uses a **TWO intelligent agent** architecture:
 
-1. **Extraction Agent**: Breaks down text into structured tickets (Tasks/Epics OR Bug Reports)
-2. **Review Agent**: Validates completeness, spots gaps, asks clarifying questions
+1. **✅ Extraction Agent** (Phase 1): Breaks down text into structured tickets (Tasks/Epics/Bugs/Stories)
+2. **⏭️ Review Agent** (Phase 2): Validates completeness, spots gaps, asks clarifying questions
 
 This ensures high-quality output before creating Jira tickets.
 
@@ -33,80 +40,125 @@ python jira_gen.py parse requirements.txt --issue-type story
 
 ---
 
-## System Architecture (Two-Agent Approach)
+## System Architecture
+
+### Phase 1 (Current Implementation)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │              JIRA Ticket Generator                          │
-│              (Two-Agent System)                             │
+│                 (Phase 1: ✅ Complete)                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  User Input (meeting notes, design docs)                   │
+│  User Input                                                 │
+│  (text file, clipboard, stdin)                             │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────────────────────────────┐               │
-│  │   AGENT 1: Extraction Agent             │               │
-│  │   "What needs to be done?"              │               │
-│  │                                         │               │
-│  │   - Extract epics                       │               │
-│  │   - Identify tasks                      │               │
-│  │   - Find acceptance criteria           │               │
-│  │   - Detect priorities                   │               │
+│  │   Configuration Validation              │               │
+│  │   (config.py)                           │               │
+│  │   - Load .env settings                  │               │
+│  │   - Validate API keys                   │               │
+│  │   - Initialize LLM client               │               │
 │  └──────────────┬──────────────────────────┘               │
-│                 │                                           │
-│                 ▼                                           │
-│       Initial Ticket Structure                              │
 │                 │                                           │
 │                 ▼                                           │
 │  ┌─────────────────────────────────────────┐               │
-│  │   AGENT 2: Review Agent                 │               │
-│  │   "Is this complete? What's missing?"   │               │
+│  │   ✅ AGENT 1: Extraction Agent          │               │
+│  │   (agents/extraction_agent.py)          │               │
 │  │                                         │               │
-│  │   - Validate completeness               │               │
-│  │   - Identify gaps                       │               │
-│  │   - Spot ambiguities                    │               │
-│  │   - Suggest improvements                │               │
-│  │   - Ask user questions                  │               │
+│  │   - Select prompt by issue type         │               │
+│  │   - Call LLM (OpenAI/Anthropic)         │               │
+│  │   - Parse JSON response                 │               │
+│  │   - Convert to Pydantic models          │               │
+│  │   - Fallback mode if LLM fails          │               │
 │  └──────────────┬──────────────────────────┘               │
 │                 │                                           │
 │                 ▼                                           │
-│       User Interactive Session                              │
-│       (Answer questions, refine)                            │
+│       TicketStructure (models.py)                           │
+│       - Epics (with nested Tasks)                           │
+│       - Bugs (with reproduction steps)                      │
+│       - Stories (agile format)                              │
 │                 │                                           │
 │                 ▼                                           │
-│       Final Validated Structure                             │
-│                 │                                           │
-│                 ▼                                           │
-│       Markdown Generation                                   │
-│                 │                                           │
-│                 ▼                                           │
-│       Jira Upload                                           │
+│  ┌─────────────────────────────────────────┐               │
+│  │   Console Output Display                │               │
+│  │   (jira_gen.py)                         │               │
+│  │   - Format for readability              │               │
+│  │   - Show acceptance criteria            │               │
+│  │   - Display all extracted tickets       │               │
+│  └─────────────────────────────────────────┘               │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Phase 2 (Planned)
+
+```
+                 ▼
+  ┌─────────────────────────────────────────┐
+  │   ⏭️ AGENT 2: Review Agent              │
+  │   (agents/review_agent.py)              │
+  │   - Validate completeness               │
+  │   - Identify gaps                       │
+  │   - Ask clarifying questions            │
+  └──────────────┬──────────────────────────┘
+                 │
+                 ▼
+       User Interactive Q&A Session
+                 │
+                 ▼
+  ┌─────────────────────────────────────────┐
+  │   ⏭️ Markdown Generation                │
+  │   (markdown_utils.py)                   │
+  │   - Create timestamped files            │
+  │   - Human-editable format               │
+  └──────────────┬──────────────────────────┘
+                 │
+                 ▼
+  ┌─────────────────────────────────────────┐
+  │   ⏭️ Jira API Upload                    │
+  │   (jira_client.py)                      │
+  │   - Create epics                        │
+  │   - Create sub-tasks                    │
+  │   - Link relationships                  │
+  └─────────────────────────────────────────┘
+```
+
 ---
 
-## Module Structure (Simplified + Two-Agent)
+## Module Structure
+
+### Phase 1 (✅ Implemented)
 
 ```
 jira-ticket-tool/
-├── jira_gen.py                # Main CLI
-├── config.py                  # Config (.env only)
-├── models.py                  # Data models
+├── jira_gen.py                # ✅ Main CLI (parse, validate commands)
+├── config.py                  # ✅ Configuration (.env management)
+├── models.py                  # ✅ Pydantic models (Task, Epic, Bug, Story)
 │
 ├── agents/
-│   ├── extraction_agent.py    # Agent 1: Extract structure
-│   ├── review_agent.py        # Agent 2: Validate & improve
-│   └── prompts.py             # LLM prompts for both agents
+│   ├── __init__.py            # ✅ Package initialization
+│   ├── extraction_agent.py    # ✅ Agent 1: Extract structure (LLM + fallback)
+│   ├── prompts.py             # ✅ LLM prompts (task, bug, story)
+│   └── review_agent.py        # ⏭️ Agent 2: Validate & improve (Phase 2)
 │
-├── jira_client.py             # Jira API wrapper
-├── markdown_utils.py          # Read/write markdown
+├── jira_client.py             # ⏭️ Jira API wrapper (Phase 2)
+├── markdown_utils.py          # ⏭️ Read/write markdown (Phase 2)
 │
-├── .env                       # SINGLE config file
-├── requirements.txt
+├── .env                       # ✅ Environment configuration (API keys)
+├── .env.example               # ✅ Configuration template
+├── requirements.txt           # ✅ Dependencies
 │
-└── tests/
+├── test_input.txt             # ✅ Sample test inputs
+├── test_bug.txt
+├── test_story.txt
+├── test_epic.txt
+│
+├── PHASE1_STATUS.md           # ✅ Implementation status tracking
+├── TEST_REPORT.md             # ✅ Comprehensive test results
+│
+└── tests/                     # ⏭️ Test suite (Phase 2)
     ├── test_extraction_agent.py
     ├── test_review_agent.py
     └── test_integration.py
