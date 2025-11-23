@@ -160,8 +160,8 @@ def _format_stories(stories: List[UserStory]) -> List[str]:
         lines.append(f"- **So that**: {story.so_that}\n")
 
         lines.append(f"**Priority**: {story.priority}")
-        if story.story_points:
-            lines.append(f" | **Story Points**: {story.story_points}")
+        if story.estimated_effort:
+            lines.append(f" | **Effort**: {story.estimated_effort}")
         lines.append("\n")
 
         # Acceptance Criteria
@@ -171,12 +171,9 @@ def _format_stories(stories: List[UserStory]) -> List[str]:
                 lines.append(f"- {ac}")
             lines.append("")
 
-        # Definition of Done
-        if story.definition_of_done:
-            lines.append("**Definition of Done**:")
-            for dod in story.definition_of_done:
-                lines.append(f"- {dod}")
-            lines.append("")
+        # Technical Notes
+        if story.technical_notes:
+            lines.append(f"**Technical Notes**: {story.technical_notes}\n")
 
         lines.append("---\n")
 
