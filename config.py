@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # Load .env file
 load_dotenv()
 
-LLMProvider = Literal['openai', 'anthropic']
+LLMProvider = Literal['openai', 'anthropic', 'ollama']
 
 
 class Config:
@@ -28,6 +28,8 @@ class Config:
     llm_provider: LLMProvider = os.getenv('LLM_PROVIDER', 'openai').lower()  # type: ignore
     openai_api_key: str = os.getenv('OPENAI_API_KEY', '')
     anthropic_api_key: str = os.getenv('ANTHROPIC_API_KEY', '')
+    ollama_base_url: str = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+    ollama_model: str = os.getenv('OLLAMA_MODEL', 'llama3:8b')
     llm_model: str = os.getenv('LLM_MODEL', 'gpt-4-turbo')
 
     @classmethod
@@ -53,9 +55,11 @@ class Config:
             errors.append("OPENAI_API_KEY not set in .env (LLM_PROVIDER=openai)")
         elif cls.llm_provider == 'anthropic' and not cls.anthropic_api_key:
             errors.append("ANTHROPIC_API_KEY not set in .env (LLM_PROVIDER=anthropic)")
+        elif cls.llm_provider == 'ollama' and not cls.ollama_base_url:
+            errors.append("OLLAMA_BASE_URL not set in .env (LLM_PROVIDER=ollama)")
 
-        if cls.llm_provider not in ['openai', 'anthropic']:
-            errors.append(f"Invalid LLM_PROVIDER: {cls.llm_provider} (must be 'openai' or 'anthropic')")
+        if cls.llm_provider not in ['openai', 'anthropic', 'ollama']:
+            errors.append(f"Invalid LLM_PROVIDER: {cls.llm_provider} (must be 'openai', 'anthropic', or 'ollama')")
 
         return errors
 
@@ -65,7 +69,7 @@ class Config:
         Get initialized LLM client based on provider
 
         Returns:
-            OpenAI or Anthropic client instance
+            OpenAI, Anthropic, or Ollama client instance
         """
         if cls.llm_provider == 'openai':
             try:
@@ -81,6 +85,17 @@ class Config:
             except ImportError:
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
 
+        elif cls.llm_provider == 'ollama':
+            try:
+                from openai import OpenAI
+                # Ollama uses OpenAI-compatible API
+                return OpenAI(
+                    base_url=cls.ollama_base_url + '/v1',
+                    api_key='ollama'  # Ollama doesn't require a real API key
+                )
+            except ImportError:
+                raise ImportError("openai package not installed. Run: pip install openai")
+
         else:
             raise ValueError(f"Invalid LLM provider: {cls.llm_provider}")
 
@@ -91,6 +106,8 @@ class Config:
             return bool(cls.openai_api_key)
         elif cls.llm_provider == 'anthropic':
             return bool(cls.anthropic_api_key)
+        elif cls.llm_provider == 'ollama':
+            return bool(cls.ollama_base_url)
         return False
 
 

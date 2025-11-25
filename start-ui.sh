@@ -22,9 +22,13 @@ if [[ "$VIRTUAL_ENV" == "" ]]; then
     echo -e "${YELLOW}!${NC} Virtual environment not active"
     echo -e "${BLUE}→${NC} Activating virtual environment..."
 
-    if [ -d "venv" ]; then
+    # Try .venv first (standard), then venv
+    if [ -d ".venv" ]; then
+        source .venv/bin/activate
+        echo -e "${GREEN}✓${NC} Virtual environment activated (.venv)"
+    elif [ -d "venv" ]; then
         source venv/bin/activate
-        echo -e "${GREEN}✓${NC} Virtual environment activated"
+        echo -e "${GREEN}✓${NC} Virtual environment activated (venv)"
     else
         echo -e "${RED}✗${NC} Virtual environment not found"
         echo -e "${BLUE}→${NC} Run: ${YELLOW}./start.sh${NC} first"
@@ -32,14 +36,19 @@ if [[ "$VIRTUAL_ENV" == "" ]]; then
     fi
 fi
 
-# Install Flask dependencies if needed
-echo -e "${BLUE}→${NC} Checking Flask dependencies..."
-if ! python3 -c "import flask" 2>/dev/null; then
-    echo -e "${YELLOW}!${NC} Installing Flask..."
-    pip3 install -q flask flask-cors
-    echo -e "${GREEN}✓${NC} Flask installed"
+# Install Python dependencies if needed
+echo -e "${BLUE}→${NC} Checking Python dependencies..."
+if ! python -c "import flask, dotenv" 2>/dev/null; then
+    echo -e "${YELLOW}!${NC} Installing Python dependencies..."
+    # Check if uv is available (faster package manager)
+    if command -v uv &> /dev/null; then
+        uv pip install -q --python python -r requirements.txt
+    else
+        python -m pip install -q -r requirements.txt
+    fi
+    echo -e "${GREEN}✓${NC} Python dependencies installed"
 else
-    echo -e "${GREEN}✓${NC} Flask ready"
+    echo -e "${GREEN}✓${NC} Python dependencies ready"
 fi
 
 # Check if Node.js is installed
@@ -64,15 +73,16 @@ else
 fi
 
 # Check if already running
-FLASK_PID=$(lsof -ti:5000 2>/dev/null || true)
+FLASK_PID=$(lsof -ti:5010 2>/dev/null || true)
 VITE_PID=$(lsof -ti:3000 2>/dev/null || true)
 
 if [ -n "$FLASK_PID" ]; then
-    echo -e "${YELLOW}!${NC} Flask server already running on port 5000 (PID: $FLASK_PID)"
+    echo -e "${YELLOW}!${NC} Flask server already running on port 5010 (PID: $FLASK_PID)"
     read -p "Kill and restart? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         kill $FLASK_PID
+        sleep 1
         echo -e "${GREEN}✓${NC} Stopped existing Flask server"
     fi
 fi
@@ -94,9 +104,9 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 
 # Start Flask backend in background
-echo -e "${BLUE}→${NC} Starting Flask backend on http://localhost:5000"
+echo -e "${BLUE}→${NC} Starting Flask backend on http://localhost:5010"
 export FLASK_ENV=development
-python3 app.py > flask.log 2>&1 &
+python app.py > flask.log 2>&1 &
 FLASK_PID=$!
 echo $FLASK_PID > flask.pid
 sleep 2
@@ -137,7 +147,7 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "${BLUE}🌐 URLs:${NC}"
 echo -e "   Frontend: ${GREEN}http://localhost:3000${NC}"
-echo -e "   Backend:  ${GREEN}http://localhost:5000${NC}"
+echo -e "   Backend:  ${GREEN}http://localhost:5010${NC}"
 echo ""
 echo -e "${BLUE}📝 Logs:${NC}"
 echo -e "   Flask: tail -f flask.log"

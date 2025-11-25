@@ -49,7 +49,7 @@ class ExtractionAgent:
 
     def _extract_with_llm(self, text: str, project_key: str) -> TicketStructure:
         """
-        Extract using LLM (OpenAI or Anthropic)
+        Extract using LLM (OpenAI, Anthropic, or Ollama)
 
         Args:
             text: Input text
@@ -58,6 +58,8 @@ class ExtractionAgent:
         Returns:
             TicketStructure with extracted tickets
         """
+        from config import config
+
         # Select prompt based on issue type
         if self.issue_type == 'bug':
             prompt = BUG_EXTRACTION_PROMPT.format(text=text, project_key=project_key)
@@ -68,21 +70,35 @@ class ExtractionAgent:
 
         # Call LLM based on provider type
         try:
-            if hasattr(self.llm_client, 'chat'):  # OpenAI
-                response = self.llm_client.chat.completions.create(
-                    model="gpt-4-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a technical product manager extracting Jira tickets from text. Return valid JSON only."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3,
-                    response_format={"type": "json_object"}
-                )
+            if hasattr(self.llm_client, 'chat'):  # OpenAI or Ollama
+                # Determine model to use
+                if config.llm_provider == 'ollama':
+                    model = config.ollama_model
+                    # Ollama may not support response_format, so we'll handle JSON parsing more carefully
+                    response = self.llm_client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are a technical product manager extracting Jira tickets from text. Return valid JSON only."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3
+                    )
+                else:
+                    model = config.llm_model
+                    response = self.llm_client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "You are a technical product manager extracting Jira tickets from text. Return valid JSON only."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        response_format={"type": "json_object"}
+                    )
                 json_text = response.choices[0].message.content
 
             elif hasattr(self.llm_client, 'messages'):  # Anthropic
                 response = self.llm_client.messages.create(
-                    model="claude-3-opus-20240229",
+                    model=config.llm_model,
                     max_tokens=4000,
                     temperature=0.3,
                     messages=[

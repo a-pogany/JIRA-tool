@@ -43,6 +43,7 @@ QUALITY STANDARDS:
 - Include security requirements (rate limiting, input validation, audit logs)
 - Add performance metrics where relevant (< 200ms response, 1000 req/sec)
 - Think about edge cases and error scenarios
+- Different software modules (batches, services, front-end) must go to separate tickets
 
 Return as JSON:
 {{

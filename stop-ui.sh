@@ -28,9 +28,9 @@ if [ -f "flask.pid" ]; then
     fi
 else
     # Try to find Flask by port
-    FLASK_PID=$(lsof -ti:5000 2>/dev/null || true)
+    FLASK_PID=$(lsof -ti:5010 2>/dev/null || true)
     if [ -n "$FLASK_PID" ]; then
-        echo -e "${BLUE}→${NC} Stopping Flask server on port 5000 (PID: $FLASK_PID)..."
+        echo -e "${BLUE}→${NC} Stopping Flask server on port 5010 (PID: $FLASK_PID)..."
         kill $FLASK_PID
         echo -e "${GREEN}✓${NC} Flask server stopped"
     else

@@ -38,7 +38,7 @@ Modern, clean web interface for the JIRA Ticket Generator with React frontend an
 ```
 
 This will:
-- Start Flask backend on http://localhost:5000
+- Start Flask backend on http://localhost:5010
 - Start React frontend on http://localhost:3000
 - Open your browser automatically
 
@@ -66,7 +66,7 @@ This will:
 └──────────────────┬──────────────────────────────┘
                    │ HTTP/API
 ┌──────────────────▼──────────────────────────────┐
-│              Flask Backend (Port 5000)          │
+│              Flask Backend (Port 5010)          │
 │  • REST API endpoints                           │
 │  • Integration with existing Python code       │
 │  • File management (upload, list, edit)        │
@@ -217,7 +217,7 @@ DEFAULT_PROJECT_KEY=PROJ
 
 ### Port Already in Use
 
-**Error**: `Port 5000 (or 3000) is already in use`
+**Error**: `Port 5010 (or 3000) is already in use`
 
 **Solution**:
 ```bash
@@ -225,7 +225,7 @@ DEFAULT_PROJECT_KEY=PROJ
 ./stop-ui.sh
 
 # Or manually
-lsof -ti:5000 | xargs kill
+lsof -ti:5010 | xargs kill
 lsof -ti:3000 | xargs kill
 ```
 
@@ -418,8 +418,8 @@ python3 jira_gen.py validate           # Validate configuration
 python3 jira_gen.py parse test.txt     # Test extraction
 
 # Test API (requires Flask running)
-curl http://localhost:5000/api/health  # Health check
-curl http://localhost:5000/api/config  # Configuration
+curl http://localhost:5010/api/health  # Health check
+curl http://localhost:5010/api/config  # Configuration
 
 # System health check
 ./status.sh                            # 7-point system check

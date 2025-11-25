@@ -68,7 +68,11 @@ function App() {
 
   const handleFileUpdate = async (filename, content) => {
     try {
-      await axios.put(`/api/markdown/${filename}`, { content })
+      await axios.put(`/api/markdown/${filename}`, { content }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
       setSelectedFile({ ...selectedFile, content })
     } catch (err) {
       setError('Failed to update file')
@@ -76,11 +80,53 @@ function App() {
   }
 
   const handleUploadToJira = async (filename) => {
+    console.log('[DEBUG] handleUploadToJira called with filename:', filename)
+    console.log('[DEBUG] selectedFile state:', selectedFile)
+    console.log('[DEBUG] result state:', result)
+
+    if (!filename) {
+      console.error('[ERROR] Filename is undefined or empty')
+      setError('No file selected for upload')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
     try {
-      const response = await axios.post('/api/upload-to-jira', { filename })
-      alert(response.data.message)
+      const payload = { filename }
+      console.log('[DEBUG] Sending payload:', payload)
+
+      const response = await axios.post('/api/upload-to-jira', payload, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      console.log('[DEBUG] Upload response:', response.data)
+
+      // Show success message with details
+      const { message, results } = response.data
+      let detailMsg = message
+
+      if (results) {
+        const details = []
+        if (results.epics?.length) details.push(`${results.epics.length} epics`)
+        if (results.tasks?.length) details.push(`${results.tasks.length} tasks`)
+        if (results.bugs?.length) details.push(`${results.bugs.length} bugs`)
+        if (results.stories?.length) details.push(`${results.stories.length} stories`)
+
+        if (details.length > 0) {
+          detailMsg += `\n\nCreated: ${details.join(', ')}`
+        }
+      }
+
+      alert(detailMsg)
     } catch (err) {
+      console.error('[ERROR] Upload failed:', err)
+      console.error('[ERROR] Response data:', err.response?.data)
       setError(err.response?.data?.error || 'Failed to upload to Jira')
+    } finally {
+      setLoading(false)
     }
   }
 

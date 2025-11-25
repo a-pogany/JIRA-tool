@@ -1,6 +1,7 @@
 {
   "name": "jira-ticket-generator-ui",
   "version": "1.0.0",
+  "type": "module",
   "description": "Web UI for JIRA Ticket Generator",
   "private": true,
   "dependencies": {

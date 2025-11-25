@@ -10,7 +10,10 @@ export default function ResultsPanel({ result, selectedFile, onUpdate, onUploadT
   if (!displayData) return null
 
   const markdown = displayData.markdown || displayData.content
-  const filename = displayData.filename
+  const filename = displayData.filename || displayData.name
+
+  console.log('[ResultsPanel] displayData:', displayData)
+  console.log('[ResultsPanel] filename extracted:', filename)
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -35,8 +38,16 @@ export default function ResultsPanel({ result, selectedFile, onUpdate, onUploadT
           </button>
 
           <button
-            onClick={() => onUploadToJira(filename)}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+            onClick={() => {
+              console.log('[ResultsPanel] Upload button clicked, filename:', filename)
+              if (!filename) {
+                alert('Error: No filename available. Please generate tickets first.')
+                return
+              }
+              onUploadToJira(filename)
+            }}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!filename}
           >
             ⬆️ Upload to Jira
           </button>

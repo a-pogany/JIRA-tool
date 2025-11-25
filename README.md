@@ -123,7 +123,7 @@ Epic: User Authentication System
 
 **Quick Start UI:**
 ```bash
-./start-ui.sh  # Starts Flask (port 5000) + React (port 3000)
+./start-ui.sh  # Starts Flask (port 5010) + React (port 3000)
 # Opens http://localhost:3000 automatically
 ```
 

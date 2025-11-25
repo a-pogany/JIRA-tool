@@ -16,6 +16,7 @@ from models import IssueType
 from agents.extraction_agent import ExtractionAgent
 from agents.review_agent import ReviewAgent
 from markdown_utils import write_markdown, generate_filename, list_markdown_files, read_markdown
+from markdown_parser import parse_markdown
 from jira_client import JiraClient
 
 app = Flask(__name__, static_folder='ui/build', static_url_path='')
@@ -92,18 +93,29 @@ def parse_tickets():
                 file.save(temp_path)
                 text = temp_path.read_text(encoding='utf-8')
                 temp_path.unlink()  # Delete temp file
-        else:
-            data = request.get_json()
-            text = data.get('text', '')
+
+        # If no file, get text from form or JSON
+        if not text:
+            if request.is_json:
+                data = request.get_json()
+                text = data.get('text', '')
+            else:
+                # For multipart/form-data
+                text = request.form.get('text', '')
 
         if not text or not text.strip():
             return jsonify({'error': 'No input text provided'}), 400
 
-        # Get parameters
-        data = request.get_json() if request.is_json else {}
+        # Get parameters from form (multipart) or JSON
+        if request.is_json:
+            data = request.get_json()
+        else:
+            # For multipart/form-data, use request.form
+            data = request.form
+
         project_key = data.get('project_key', config.jira_project or 'PROJ')
         issue_type = data.get('issue_type', 'task').lower()
-        skip_review = data.get('skip_review', False)
+        skip_review = data.get('skip_review', 'false').lower() in ['true', '1', 'yes']
 
         # Validate issue type
         if issue_type not in ['task', 'bug', 'story', 'epic-only']:
@@ -290,32 +302,81 @@ def upload_to_jira():
     }
     """
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True)
+        print(f"[DEBUG] Upload to Jira - Raw data: {data}")
+
+        if not data:
+            print("[ERROR] No JSON data received")
+            return jsonify({'error': 'Invalid JSON data'}), 400
+
         filename = data.get('filename')
+        print(f"[DEBUG] Upload to Jira - Extracted filename: {filename}")
 
         if not filename:
+            print("[ERROR] Filename is None or empty")
             return jsonify({'error': 'No filename provided'}), 400
 
         # Validate Jira configuration
         if not (config.jira_url and config.jira_email and config.jira_api_token):
             return jsonify({'error': 'Jira not configured. Please set JIRA_URL, JIRA_EMAIL, and JIRA_API_TOKEN in .env'}), 400
 
-        # Note: Full implementation would parse markdown back to TicketStructure
-        # For now, return informational message
+        # Check if file exists
+        file_path = Path(filename)
+        if not file_path.exists():
+            return jsonify({'error': f'File not found: {filename}'}), 404
+
+        # Parse markdown back to TicketStructure
+        print(f"[DEBUG] Parsing markdown file: {filename}")
+        try:
+            structure = parse_markdown(file_path)
+            print(f"[DEBUG] Parsed structure: {structure.count_total_items()} items")
+        except Exception as e:
+            print(f"[ERROR] Failed to parse markdown: {e}")
+            return jsonify({'error': f'Failed to parse markdown: {str(e)}'}), 400
+
+        # Initialize Jira client
+        print("[DEBUG] Initializing Jira client")
+        jira_client = JiraClient(
+            jira_url=config.jira_url,
+            email=config.jira_email,
+            api_token=config.jira_api_token
+        )
+
+        # Test connection
+        print("[DEBUG] Testing Jira connection")
+        if not jira_client.test_connection():
+            return jsonify({'error': 'Failed to connect to Jira. Please check your credentials.'}), 400
+
+        # Upload to Jira
+        print("[DEBUG] Uploading to Jira")
+        results = jira_client.upload_structure(structure)
+        print(f"[DEBUG] Upload results: {results}")
+
+        # Count created tickets
+        total_created = (
+            len(results.get('epics', [])) +
+            len(results.get('tasks', [])) +
+            len(results.get('bugs', [])) +
+            len(results.get('stories', []))
+        )
+
         return jsonify({
             'success': True,
-            'message': 'Upload to Jira functionality - parsing markdown to structure required',
-            'note': 'For now, use CLI: python3 jira_gen.py upload ' + filename
+            'message': f'Successfully uploaded {total_created} tickets to Jira',
+            'results': results
         })
 
     except Exception as e:
+        print(f"[ERROR] Upload failed: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
     # Check if in development mode
     debug_mode = os.getenv('FLASK_ENV') == 'development'
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5010))
 
     print(f"""
 ╔════════════════════════════════════════════╗

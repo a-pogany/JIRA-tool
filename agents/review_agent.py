@@ -132,28 +132,47 @@ class ReviewAgent:
         # Convert structure to text for review
         structure_text = self._structure_to_text(structure)
 
+        from config import config
+
         prompt = REVIEW_PROMPT.format(structure=structure_text)
 
-        # Call LLM (OpenAI)
+        # Call LLM (OpenAI or Ollama)
         if hasattr(self.llm_client, 'chat'):
-            response = self.llm_client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a senior software architect reviewing requirements. "
-                                 "Find gaps, ambiguities, and missing details. Be thorough and critical."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.5
-            )
+            # Determine model to use
+            if config.llm_provider == 'ollama':
+                model = config.ollama_model
+                response = self.llm_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a senior software architect reviewing requirements. "
+                                     "Find gaps, ambiguities, and missing details. Be thorough and critical."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.5
+                )
+            else:
+                model = config.llm_model
+                response = self.llm_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a senior software architect reviewing requirements. "
+                                     "Find gaps, ambiguities, and missing details. Be thorough and critical."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.5
+                )
             content = response.choices[0].message.content
         # Call LLM (Anthropic)
         else:
             response = self.llm_client.messages.create(
-                model="claude-3-opus-20240229",
+                model=config.llm_model,
                 max_tokens=4096,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -264,30 +283,48 @@ class ReviewAgent:
         structure_text = self._structure_to_text(structure)
         answers_text = "\n".join(f"Q: {q}\nA: {a}" for q, a in user_answers.items())
 
+        from config import config
+
         prompt = REFINEMENT_PROMPT.format(
             structure=structure_text,
             feedback=answers_text
         )
 
-        # Call LLM (OpenAI)
+        # Call LLM (OpenAI or Ollama)
         if hasattr(self.llm_client, 'chat'):
-            response = self.llm_client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a requirements analyst. Refine the ticket structure based on user feedback."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3
-            )
+            # Determine model to use
+            if config.llm_provider == 'ollama':
+                model = config.ollama_model
+                response = self.llm_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a requirements analyst. Refine the ticket structure based on user feedback."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3
+                )
+            else:
+                model = config.llm_model
+                response = self.llm_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a requirements analyst. Refine the ticket structure based on user feedback."
+                        },
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.3
+                )
             content = response.choices[0].message.content
         # Call LLM (Anthropic)
         else:
             response = self.llm_client.messages.create(
-                model="claude-3-opus-20240229",
+                model=config.llm_model,
                 max_tokens=4096,
                 messages=[
                     {"role": "user", "content": prompt}

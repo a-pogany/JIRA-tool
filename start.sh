@@ -18,7 +18,7 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Check Python version
-echo -e "${BLUE}→${NC} Checking Python version..."
+echo -e "${BLUE}→${NC} Checking Python version..."Both A and 
 if ! command -v python3 &> /dev/null; then
     echo -e "${RED}✗${NC} Python 3 not found. Please install Python 3.8 or higher."
     exit 1
